@@ -64,7 +64,7 @@
 
       //------------manually executing wasm-----------------
 
-      fetch("test2.wasm")
+      fetch("test2.wasm", { mode: "no-cors" })
          .then(bytes => bytes.arrayBuffer())
          .then(mod => WebAssembly.compile(mod)).then(async module => {
             return WebAssembly.instantiate(module, config)
