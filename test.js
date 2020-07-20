@@ -1777,7 +1777,6 @@ function getBinaryPromise() {
 // Create the wasm instance.
 // Receives the wasm imports, returns the exports.
 function createWasm() {
-  console.log("-------------createWasm------------------")
   // prepare imports
   var info = {
     'env': asmLibraryArg,

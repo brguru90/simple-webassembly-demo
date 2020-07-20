@@ -24,7 +24,7 @@
          // console.log(exports);
          let buffer = new Uint8Array(buf);
          let buf_pos = exports.c_hello()
-         console.log("pos & value", buf_pos,buffer[buf_pos])
+         console.log("pos & value", buf_pos,buffer[buf_pos],String.fromCharCode(buffer[buf_pos]))
          exports.print()
          let mytext = ""
          for (let i = buf_pos; buffer[i]; i++) {
