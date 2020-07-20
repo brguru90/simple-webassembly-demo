@@ -1289,11 +1289,11 @@ function updateGlobalBufferAndViews(buf) {
 }
 
 var STATIC_BASE = 1024,
-    STACK_BASE = 5244608,
+    STACK_BASE = 5244736,
     STACKTOP = STACK_BASE,
-    STACK_MAX = 1728,
-    DYNAMIC_BASE = 5244608,
-    DYNAMICTOP_PTR = 1568;
+    STACK_MAX = 1856,
+    DYNAMIC_BASE = 5244736,
+    DYNAMICTOP_PTR = 1696;
 
 assert(STACK_BASE % 16 === 0, 'stack must start aligned');
 assert(DYNAMIC_BASE % 16 === 0, 'heap must start aligned');
@@ -1874,7 +1874,7 @@ var ASM_CONSTS = {
 
 
 
-// STATICTOP = STATIC_BASE + 704;
+// STATICTOP = STATIC_BASE + 832;
 /* global initializers */  __ATINIT__.push({ func: function() { ___wasm_call_ctors() } });
 
 
@@ -1930,8 +1930,16 @@ var ASM_CONSTS = {
       abort('stack overflow')
     }
 
+  function _abort() {
+      abort();
+    }
+
   function _emscripten_get_sbrk_ptr() {
-      return 1568;
+      return 1696;
+    }
+
+  function _emscripten_memcpy_big(dest, src, num) {
+      HEAPU8.copyWithin(dest, src, src + num);
     }
 
   
@@ -1952,6 +1960,442 @@ var ASM_CONSTS = {
   err('missing function: jsPrintString'); abort(-1);
   }
   Module["_jsPrintString"] = _jsPrintString;
+
+  
+  var ___tm_current=1712;
+  
+  
+  var ___tm_timezone=(stringToUTF8("GMT", 1760, 4), 1760);
+  
+  function _tzset() {
+      // TODO: Use (malleable) environment variables instead of system settings.
+      if (_tzset.called) return;
+      _tzset.called = true;
+  
+      // timezone is specified as seconds west of UTC ("The external variable
+      // `timezone` shall be set to the difference, in seconds, between
+      // Coordinated Universal Time (UTC) and local standard time."), the same
+      // as returned by getTimezoneOffset().
+      // See http://pubs.opengroup.org/onlinepubs/009695399/functions/tzset.html
+      HEAP32[((__get_timezone())>>2)]=(new Date()).getTimezoneOffset() * 60;
+  
+      var currentYear = new Date().getFullYear();
+      var winter = new Date(currentYear, 0, 1);
+      var summer = new Date(currentYear, 6, 1);
+      HEAP32[((__get_daylight())>>2)]=Number(winter.getTimezoneOffset() != summer.getTimezoneOffset());
+  
+      function extractZone(date) {
+        var match = date.toTimeString().match(/\(([A-Za-z ]+)\)$/);
+        return match ? match[1] : "GMT";
+      };
+      var winterName = extractZone(winter);
+      var summerName = extractZone(summer);
+      var winterNamePtr = allocateUTF8(winterName);
+      var summerNamePtr = allocateUTF8(summerName);
+      if (summer.getTimezoneOffset() < winter.getTimezoneOffset()) {
+        // Northern hemisphere
+        HEAP32[((__get_tzname())>>2)]=winterNamePtr;
+        HEAP32[(((__get_tzname())+(4))>>2)]=summerNamePtr;
+      } else {
+        HEAP32[((__get_tzname())>>2)]=summerNamePtr;
+        HEAP32[(((__get_tzname())+(4))>>2)]=winterNamePtr;
+      }
+    }function _localtime_r(time, tmPtr) {
+      _tzset();
+      var date = new Date(HEAP32[((time)>>2)]*1000);
+      HEAP32[((tmPtr)>>2)]=date.getSeconds();
+      HEAP32[(((tmPtr)+(4))>>2)]=date.getMinutes();
+      HEAP32[(((tmPtr)+(8))>>2)]=date.getHours();
+      HEAP32[(((tmPtr)+(12))>>2)]=date.getDate();
+      HEAP32[(((tmPtr)+(16))>>2)]=date.getMonth();
+      HEAP32[(((tmPtr)+(20))>>2)]=date.getFullYear()-1900;
+      HEAP32[(((tmPtr)+(24))>>2)]=date.getDay();
+  
+      var start = new Date(date.getFullYear(), 0, 1);
+      var yday = ((date.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))|0;
+      HEAP32[(((tmPtr)+(28))>>2)]=yday;
+      HEAP32[(((tmPtr)+(36))>>2)]=-(date.getTimezoneOffset() * 60);
+  
+      // Attention: DST is in December in South, and some regions don't have DST at all.
+      var summerOffset = new Date(date.getFullYear(), 6, 1).getTimezoneOffset();
+      var winterOffset = start.getTimezoneOffset();
+      var dst = (summerOffset != winterOffset && date.getTimezoneOffset() == Math.min(winterOffset, summerOffset))|0;
+      HEAP32[(((tmPtr)+(32))>>2)]=dst;
+  
+      var zonePtr = HEAP32[(((__get_tzname())+(dst ? 4 : 0))>>2)];
+      HEAP32[(((tmPtr)+(40))>>2)]=zonePtr;
+  
+      return tmPtr;
+    }function _localtime(time) {
+      return _localtime_r(time, ___tm_current);
+    }
+
+  
+  function __isLeapYear(year) {
+        return year%4 === 0 && (year%100 !== 0 || year%400 === 0);
+    }
+  
+  function __arraySum(array, index) {
+      var sum = 0;
+      for (var i = 0; i <= index; sum += array[i++]) {
+        // no-op
+      }
+      return sum;
+    }
+  
+  
+  var __MONTH_DAYS_LEAP=[31,29,31,30,31,30,31,31,30,31,30,31];
+  
+  var __MONTH_DAYS_REGULAR=[31,28,31,30,31,30,31,31,30,31,30,31];function __addDays(date, days) {
+      var newDate = new Date(date.getTime());
+      while(days > 0) {
+        var leap = __isLeapYear(newDate.getFullYear());
+        var currentMonth = newDate.getMonth();
+        var daysInCurrentMonth = (leap ? __MONTH_DAYS_LEAP : __MONTH_DAYS_REGULAR)[currentMonth];
+  
+        if (days > daysInCurrentMonth-newDate.getDate()) {
+          // we spill over to next month
+          days -= (daysInCurrentMonth-newDate.getDate()+1);
+          newDate.setDate(1);
+          if (currentMonth < 11) {
+            newDate.setMonth(currentMonth+1)
+          } else {
+            newDate.setMonth(0);
+            newDate.setFullYear(newDate.getFullYear()+1);
+          }
+        } else {
+          // we stay in current month
+          newDate.setDate(newDate.getDate()+days);
+          return newDate;
+        }
+      }
+  
+      return newDate;
+    }function _strftime(s, maxsize, format, tm) {
+      // size_t strftime(char *restrict s, size_t maxsize, const char *restrict format, const struct tm *restrict timeptr);
+      // http://pubs.opengroup.org/onlinepubs/009695399/functions/strftime.html
+  
+      var tm_zone = HEAP32[(((tm)+(40))>>2)];
+  
+      var date = {
+        tm_sec: HEAP32[((tm)>>2)],
+        tm_min: HEAP32[(((tm)+(4))>>2)],
+        tm_hour: HEAP32[(((tm)+(8))>>2)],
+        tm_mday: HEAP32[(((tm)+(12))>>2)],
+        tm_mon: HEAP32[(((tm)+(16))>>2)],
+        tm_year: HEAP32[(((tm)+(20))>>2)],
+        tm_wday: HEAP32[(((tm)+(24))>>2)],
+        tm_yday: HEAP32[(((tm)+(28))>>2)],
+        tm_isdst: HEAP32[(((tm)+(32))>>2)],
+        tm_gmtoff: HEAP32[(((tm)+(36))>>2)],
+        tm_zone: tm_zone ? UTF8ToString(tm_zone) : ''
+      };
+  
+      var pattern = UTF8ToString(format);
+  
+      // expand format
+      var EXPANSION_RULES_1 = {
+        '%c': '%a %b %d %H:%M:%S %Y',     // Replaced by the locale's appropriate date and time representation - e.g., Mon Aug  3 14:02:01 2013
+        '%D': '%m/%d/%y',                 // Equivalent to %m / %d / %y
+        '%F': '%Y-%m-%d',                 // Equivalent to %Y - %m - %d
+        '%h': '%b',                       // Equivalent to %b
+        '%r': '%I:%M:%S %p',              // Replaced by the time in a.m. and p.m. notation
+        '%R': '%H:%M',                    // Replaced by the time in 24-hour notation
+        '%T': '%H:%M:%S',                 // Replaced by the time
+        '%x': '%m/%d/%y',                 // Replaced by the locale's appropriate date representation
+        '%X': '%H:%M:%S',                 // Replaced by the locale's appropriate time representation
+        // Modified Conversion Specifiers
+        '%Ec': '%c',                      // Replaced by the locale's alternative appropriate date and time representation.
+        '%EC': '%C',                      // Replaced by the name of the base year (period) in the locale's alternative representation.
+        '%Ex': '%m/%d/%y',                // Replaced by the locale's alternative date representation.
+        '%EX': '%H:%M:%S',                // Replaced by the locale's alternative time representation.
+        '%Ey': '%y',                      // Replaced by the offset from %EC (year only) in the locale's alternative representation.
+        '%EY': '%Y',                      // Replaced by the full alternative year representation.
+        '%Od': '%d',                      // Replaced by the day of the month, using the locale's alternative numeric symbols, filled as needed with leading zeros if there is any alternative symbol for zero; otherwise, with leading <space> characters.
+        '%Oe': '%e',                      // Replaced by the day of the month, using the locale's alternative numeric symbols, filled as needed with leading <space> characters.
+        '%OH': '%H',                      // Replaced by the hour (24-hour clock) using the locale's alternative numeric symbols.
+        '%OI': '%I',                      // Replaced by the hour (12-hour clock) using the locale's alternative numeric symbols.
+        '%Om': '%m',                      // Replaced by the month using the locale's alternative numeric symbols.
+        '%OM': '%M',                      // Replaced by the minutes using the locale's alternative numeric symbols.
+        '%OS': '%S',                      // Replaced by the seconds using the locale's alternative numeric symbols.
+        '%Ou': '%u',                      // Replaced by the weekday as a number in the locale's alternative representation (Monday=1).
+        '%OU': '%U',                      // Replaced by the week number of the year (Sunday as the first day of the week, rules corresponding to %U ) using the locale's alternative numeric symbols.
+        '%OV': '%V',                      // Replaced by the week number of the year (Monday as the first day of the week, rules corresponding to %V ) using the locale's alternative numeric symbols.
+        '%Ow': '%w',                      // Replaced by the number of the weekday (Sunday=0) using the locale's alternative numeric symbols.
+        '%OW': '%W',                      // Replaced by the week number of the year (Monday as the first day of the week) using the locale's alternative numeric symbols.
+        '%Oy': '%y',                      // Replaced by the year (offset from %C ) using the locale's alternative numeric symbols.
+      };
+      for (var rule in EXPANSION_RULES_1) {
+        pattern = pattern.replace(new RegExp(rule, 'g'), EXPANSION_RULES_1[rule]);
+      }
+  
+      var WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  
+      function leadingSomething(value, digits, character) {
+        var str = typeof value === 'number' ? value.toString() : (value || '');
+        while (str.length < digits) {
+          str = character[0]+str;
+        }
+        return str;
+      }
+  
+      function leadingNulls(value, digits) {
+        return leadingSomething(value, digits, '0');
+      }
+  
+      function compareByDay(date1, date2) {
+        function sgn(value) {
+          return value < 0 ? -1 : (value > 0 ? 1 : 0);
+        }
+  
+        var compare;
+        if ((compare = sgn(date1.getFullYear()-date2.getFullYear())) === 0) {
+          if ((compare = sgn(date1.getMonth()-date2.getMonth())) === 0) {
+            compare = sgn(date1.getDate()-date2.getDate());
+          }
+        }
+        return compare;
+      }
+  
+      function getFirstWeekStartDate(janFourth) {
+          switch (janFourth.getDay()) {
+            case 0: // Sunday
+              return new Date(janFourth.getFullYear()-1, 11, 29);
+            case 1: // Monday
+              return janFourth;
+            case 2: // Tuesday
+              return new Date(janFourth.getFullYear(), 0, 3);
+            case 3: // Wednesday
+              return new Date(janFourth.getFullYear(), 0, 2);
+            case 4: // Thursday
+              return new Date(janFourth.getFullYear(), 0, 1);
+            case 5: // Friday
+              return new Date(janFourth.getFullYear()-1, 11, 31);
+            case 6: // Saturday
+              return new Date(janFourth.getFullYear()-1, 11, 30);
+          }
+      }
+  
+      function getWeekBasedYear(date) {
+          var thisDate = __addDays(new Date(date.tm_year+1900, 0, 1), date.tm_yday);
+  
+          var janFourthThisYear = new Date(thisDate.getFullYear(), 0, 4);
+          var janFourthNextYear = new Date(thisDate.getFullYear()+1, 0, 4);
+  
+          var firstWeekStartThisYear = getFirstWeekStartDate(janFourthThisYear);
+          var firstWeekStartNextYear = getFirstWeekStartDate(janFourthNextYear);
+  
+          if (compareByDay(firstWeekStartThisYear, thisDate) <= 0) {
+            // this date is after the start of the first week of this year
+            if (compareByDay(firstWeekStartNextYear, thisDate) <= 0) {
+              return thisDate.getFullYear()+1;
+            } else {
+              return thisDate.getFullYear();
+            }
+          } else {
+            return thisDate.getFullYear()-1;
+          }
+      }
+  
+      var EXPANSION_RULES_2 = {
+        '%a': function(date) {
+          return WEEKDAYS[date.tm_wday].substring(0,3);
+        },
+        '%A': function(date) {
+          return WEEKDAYS[date.tm_wday];
+        },
+        '%b': function(date) {
+          return MONTHS[date.tm_mon].substring(0,3);
+        },
+        '%B': function(date) {
+          return MONTHS[date.tm_mon];
+        },
+        '%C': function(date) {
+          var year = date.tm_year+1900;
+          return leadingNulls((year/100)|0,2);
+        },
+        '%d': function(date) {
+          return leadingNulls(date.tm_mday, 2);
+        },
+        '%e': function(date) {
+          return leadingSomething(date.tm_mday, 2, ' ');
+        },
+        '%g': function(date) {
+          // %g, %G, and %V give values according to the ISO 8601:2000 standard week-based year.
+          // In this system, weeks begin on a Monday and week 1 of the year is the week that includes
+          // January 4th, which is also the week that includes the first Thursday of the year, and
+          // is also the first week that contains at least four days in the year.
+          // If the first Monday of January is the 2nd, 3rd, or 4th, the preceding days are part of
+          // the last week of the preceding year; thus, for Saturday 2nd January 1999,
+          // %G is replaced by 1998 and %V is replaced by 53. If December 29th, 30th,
+          // or 31st is a Monday, it and any following days are part of week 1 of the following year.
+          // Thus, for Tuesday 30th December 1997, %G is replaced by 1998 and %V is replaced by 01.
+  
+          return getWeekBasedYear(date).toString().substring(2);
+        },
+        '%G': function(date) {
+          return getWeekBasedYear(date);
+        },
+        '%H': function(date) {
+          return leadingNulls(date.tm_hour, 2);
+        },
+        '%I': function(date) {
+          var twelveHour = date.tm_hour;
+          if (twelveHour == 0) twelveHour = 12;
+          else if (twelveHour > 12) twelveHour -= 12;
+          return leadingNulls(twelveHour, 2);
+        },
+        '%j': function(date) {
+          // Day of the year (001-366)
+          return leadingNulls(date.tm_mday+__arraySum(__isLeapYear(date.tm_year+1900) ? __MONTH_DAYS_LEAP : __MONTH_DAYS_REGULAR, date.tm_mon-1), 3);
+        },
+        '%m': function(date) {
+          return leadingNulls(date.tm_mon+1, 2);
+        },
+        '%M': function(date) {
+          return leadingNulls(date.tm_min, 2);
+        },
+        '%n': function() {
+          return '\n';
+        },
+        '%p': function(date) {
+          if (date.tm_hour >= 0 && date.tm_hour < 12) {
+            return 'AM';
+          } else {
+            return 'PM';
+          }
+        },
+        '%S': function(date) {
+          return leadingNulls(date.tm_sec, 2);
+        },
+        '%t': function() {
+          return '\t';
+        },
+        '%u': function(date) {
+          return date.tm_wday || 7;
+        },
+        '%U': function(date) {
+          // Replaced by the week number of the year as a decimal number [00,53].
+          // The first Sunday of January is the first day of week 1;
+          // days in the new year before this are in week 0. [ tm_year, tm_wday, tm_yday]
+          var janFirst = new Date(date.tm_year+1900, 0, 1);
+          var firstSunday = janFirst.getDay() === 0 ? janFirst : __addDays(janFirst, 7-janFirst.getDay());
+          var endDate = new Date(date.tm_year+1900, date.tm_mon, date.tm_mday);
+  
+          // is target date after the first Sunday?
+          if (compareByDay(firstSunday, endDate) < 0) {
+            // calculate difference in days between first Sunday and endDate
+            var februaryFirstUntilEndMonth = __arraySum(__isLeapYear(endDate.getFullYear()) ? __MONTH_DAYS_LEAP : __MONTH_DAYS_REGULAR, endDate.getMonth()-1)-31;
+            var firstSundayUntilEndJanuary = 31-firstSunday.getDate();
+            var days = firstSundayUntilEndJanuary+februaryFirstUntilEndMonth+endDate.getDate();
+            return leadingNulls(Math.ceil(days/7), 2);
+          }
+  
+          return compareByDay(firstSunday, janFirst) === 0 ? '01': '00';
+        },
+        '%V': function(date) {
+          // Replaced by the week number of the year (Monday as the first day of the week)
+          // as a decimal number [01,53]. If the week containing 1 January has four
+          // or more days in the new year, then it is considered week 1.
+          // Otherwise, it is the last week of the previous year, and the next week is week 1.
+          // Both January 4th and the first Thursday of January are always in week 1. [ tm_year, tm_wday, tm_yday]
+          var janFourthThisYear = new Date(date.tm_year+1900, 0, 4);
+          var janFourthNextYear = new Date(date.tm_year+1901, 0, 4);
+  
+          var firstWeekStartThisYear = getFirstWeekStartDate(janFourthThisYear);
+          var firstWeekStartNextYear = getFirstWeekStartDate(janFourthNextYear);
+  
+          var endDate = __addDays(new Date(date.tm_year+1900, 0, 1), date.tm_yday);
+  
+          if (compareByDay(endDate, firstWeekStartThisYear) < 0) {
+            // if given date is before this years first week, then it belongs to the 53rd week of last year
+            return '53';
+          }
+  
+          if (compareByDay(firstWeekStartNextYear, endDate) <= 0) {
+            // if given date is after next years first week, then it belongs to the 01th week of next year
+            return '01';
+          }
+  
+          // given date is in between CW 01..53 of this calendar year
+          var daysDifference;
+          if (firstWeekStartThisYear.getFullYear() < date.tm_year+1900) {
+            // first CW of this year starts last year
+            daysDifference = date.tm_yday+32-firstWeekStartThisYear.getDate()
+          } else {
+            // first CW of this year starts this year
+            daysDifference = date.tm_yday+1-firstWeekStartThisYear.getDate();
+          }
+          return leadingNulls(Math.ceil(daysDifference/7), 2);
+        },
+        '%w': function(date) {
+          return date.tm_wday;
+        },
+        '%W': function(date) {
+          // Replaced by the week number of the year as a decimal number [00,53].
+          // The first Monday of January is the first day of week 1;
+          // days in the new year before this are in week 0. [ tm_year, tm_wday, tm_yday]
+          var janFirst = new Date(date.tm_year, 0, 1);
+          var firstMonday = janFirst.getDay() === 1 ? janFirst : __addDays(janFirst, janFirst.getDay() === 0 ? 1 : 7-janFirst.getDay()+1);
+          var endDate = new Date(date.tm_year+1900, date.tm_mon, date.tm_mday);
+  
+          // is target date after the first Monday?
+          if (compareByDay(firstMonday, endDate) < 0) {
+            var februaryFirstUntilEndMonth = __arraySum(__isLeapYear(endDate.getFullYear()) ? __MONTH_DAYS_LEAP : __MONTH_DAYS_REGULAR, endDate.getMonth()-1)-31;
+            var firstMondayUntilEndJanuary = 31-firstMonday.getDate();
+            var days = firstMondayUntilEndJanuary+februaryFirstUntilEndMonth+endDate.getDate();
+            return leadingNulls(Math.ceil(days/7), 2);
+          }
+          return compareByDay(firstMonday, janFirst) === 0 ? '01': '00';
+        },
+        '%y': function(date) {
+          // Replaced by the last two digits of the year as a decimal number [00,99]. [ tm_year]
+          return (date.tm_year+1900).toString().substring(2);
+        },
+        '%Y': function(date) {
+          // Replaced by the year as a decimal number (for example, 1997). [ tm_year]
+          return date.tm_year+1900;
+        },
+        '%z': function(date) {
+          // Replaced by the offset from UTC in the ISO 8601:2000 standard format ( +hhmm or -hhmm ).
+          // For example, "-0430" means 4 hours 30 minutes behind UTC (west of Greenwich).
+          var off = date.tm_gmtoff;
+          var ahead = off >= 0;
+          off = Math.abs(off) / 60;
+          // convert from minutes into hhmm format (which means 60 minutes = 100 units)
+          off = (off / 60)*100 + (off % 60);
+          return (ahead ? '+' : '-') + String("0000" + off).slice(-4);
+        },
+        '%Z': function(date) {
+          return date.tm_zone;
+        },
+        '%%': function() {
+          return '%';
+        }
+      };
+      for (var rule in EXPANSION_RULES_2) {
+        if (pattern.indexOf(rule) >= 0) {
+          pattern = pattern.replace(new RegExp(rule, 'g'), EXPANSION_RULES_2[rule](date));
+        }
+      }
+  
+      var bytes = intArrayFromString(pattern, false);
+      if (bytes.length > maxsize) {
+        return 0;
+      }
+  
+      writeArrayToMemory(bytes, s);
+      return bytes.length-1;
+    }
+
+  function _time(ptr) {
+      var ret = (Date.now()/1000)|0;
+      if (ptr) {
+        HEAP32[((ptr)>>2)]=ret;
+      }
+      return ret;
+    }
 var ASSERTIONS = true;
 
 
@@ -1982,7 +2426,7 @@ function intArrayToString(array) {
 
 
 var asmGlobalArg = {};
-var asmLibraryArg = { "__handle_stack_overflow": ___handle_stack_overflow, "emscripten_get_sbrk_ptr": _emscripten_get_sbrk_ptr, "emscripten_resize_heap": _emscripten_resize_heap, "jsPrintString": _jsPrintString, "memory": wasmMemory, "table": wasmTable };
+var asmLibraryArg = { "__handle_stack_overflow": ___handle_stack_overflow, "abort": _abort, "emscripten_get_sbrk_ptr": _emscripten_get_sbrk_ptr, "emscripten_memcpy_big": _emscripten_memcpy_big, "emscripten_resize_heap": _emscripten_resize_heap, "jsPrintString": _jsPrintString, "localtime": _localtime, "memory": wasmMemory, "strftime": _strftime, "table": wasmTable, "time": _time };
 var asm = createWasm();
 /** @type {function(...*):?} */
 var ___wasm_call_ctors = Module["___wasm_call_ctors"] = createExportWrapper("__wasm_call_ctors");
@@ -1998,6 +2442,15 @@ var ___errno_location = Module["___errno_location"] = createExportWrapper("__err
 
 /** @type {function(...*):?} */
 var _fflush = Module["_fflush"] = createExportWrapper("fflush");
+
+/** @type {function(...*):?} */
+var __get_tzname = Module["__get_tzname"] = createExportWrapper("_get_tzname");
+
+/** @type {function(...*):?} */
+var __get_daylight = Module["__get_daylight"] = createExportWrapper("_get_daylight");
+
+/** @type {function(...*):?} */
+var __get_timezone = Module["__get_timezone"] = createExportWrapper("_get_timezone");
 
 /** @type {function(...*):?} */
 var stackSave = Module["stackSave"] = createExportWrapper("stackSave");

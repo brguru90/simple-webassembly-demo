@@ -11,5 +11,5 @@ em++ -s WASM=1   -s EXPORTED_FUNCTIONS='["_jsPrintString","_c_hello","_print"]' 
 #em++ -s WASM=1 -s EXPORT_ALL=1 -o test.js pgm.cpp
 
 #----------for method 2 -------------
-em++ pgm.cpp -O3 -s WASM=1 -s SIDE_MODULE=1 -s EXPORTED_FUNCTIONS='["_c_hello","_print","_jsPrintString"]' -o test2.wasm
+em++ pgm2.cpp -O3 -s WASM=1 -s SIDE_MODULE=1 -s EXPORTED_FUNCTIONS='["_c_hello","_print","_jsPrintString"]' -o test2.wasm
 #em++ pgm.cpp -Os -s WASM=1 -s SIDE_MODULE=1 -o test.wasm

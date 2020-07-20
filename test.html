@@ -9,8 +9,10 @@
 
 <body>
    <script type="text/javascript">
+    var memory =null
       //----callback from cpp
       function handlePrintString(ptr, len) {
+         console.log(ptr)
          const view = new Uint8Array(memory.buffer, ptr, len);
          let string = '';
          for (let i = 0; i < len; i++) {
@@ -24,7 +26,7 @@
          // console.log(exports);
          let buffer = new Uint8Array(buf);
          let buf_pos = exports.c_hello()
-         console.log("pos & value", buf_pos,buffer[buf_pos],String.fromCharCode(buffer[buf_pos]))
+         // console.log("buffer: pos & value", buf_pos,buffer[buf_pos],String.fromCharCode(buffer[buf_pos]))
          exports.print()
          let mytext = ""
          for (let i = buf_pos; buffer[i]; i++) {
@@ -37,7 +39,7 @@
    <!-- -----------Method 1---------- -->
    <script>
       //----------manual configuration including callback,buffer size etc
-      const memory = new WebAssembly.Memory({
+      memory = new WebAssembly.Memory({
          initial: 256,
          maximum: 25600,
       });
@@ -62,7 +64,7 @@
       }
 
 
-      //------------manually executing wasm-----------------
+      // ------------manually executing wasm-----------------
 
       fetch("test2.wasm", { mode: "no-cors" })
          .then(bytes => bytes.arrayBuffer())
@@ -79,9 +81,11 @@
    <!-- -----------Method 2  using js helper---------- -->
    <script>
       // ----------after loading test.js ----------------
-      var Module = {
+         var Module = {
+         // wasmMemory:memory,
          instantiateWasm: (info, receiveInstance) => {
             asmLibraryArg["jsPrintString"] = handlePrintString
+            Module['wasmMemory']=asmLibraryArg.memory
             removeRunDependency('wasm-instantiate');
             delete Module["instantiateWasm"]
             return createWasm()
@@ -89,6 +93,8 @@
          onRuntimeInitialized: function () {
             try {
                console.log("-----method 2-------------")
+               //getting buffer reference back to current program
+               memory=Module['wasmMemory']
                process_func(Module.asm, Module.HEAP8)
 
             } catch (error) {
@@ -96,6 +102,7 @@
             }
          }
       };
+      
    </script>
 
    <!-- use generated js -->
