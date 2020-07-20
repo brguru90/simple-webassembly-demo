@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>Document</title>
+</head>
+
+<body>
+   <script type="text/javascript">
+      //----callback from cpp
+      function handlePrintString(ptr, len) {
+         const view = new Uint8Array(memory.buffer, ptr, len);
+         let string = '';
+         for (let i = 0; i < len; i++) {
+            string += String.fromCharCode(view[i]);
+         }
+         console.log(string);
+      }
+
+      //-----calling function defined in cpp
+      process_func = (exports, buf) => {
+         // console.log(exports);
+         let buffer = new Uint8Array(buf);
+         let buf_pos = exports.c_hello()
+         // console.log("mannual", buf_pos,buffer[buf_pos])
+         exports.print()
+         let mytext = ""
+         for (let i = buf_pos; buffer[i]; i++) {
+            mytext += String.fromCharCode(buffer[i]);
+         }
+         console.log("mannual", mytext);
+      }
+   </script>
+
+   <!-- -----------Method 1---------- -->
+   <script>
+      //----------manual configuration including callback,buffer size etc
+      const memory = new WebAssembly.Memory({
+         initial: 256,
+         maximum: 25600,
+      });
+
+      const config = {
+         env: {
+            jsPrintString: handlePrintString,
+            abortStackOverflow: () => {
+               throw new Error('overflow');
+            },
+            table: new WebAssembly.Table({
+               initial: 0,
+               maximum: 0,
+               element: 'anyfunc'
+            }),
+            tableBase: 0,
+            memory: memory,
+            __memory_base: 1024,
+            STACKTOP: 0,
+            STACK_MAX: memory.buffer.byteLength,
+         }
+      }
+
+
+      //------------manually executing wasm-----------------
+
+      fetch("test2.wasm")
+         .then(bytes => bytes.arrayBuffer())
+         .then(mod => WebAssembly.compile(mod)).then(async module => {
+            return WebAssembly.instantiate(module, config)
+         })
+         .then(instance => {
+            console.log("-----method 1-------------")
+            process_func(instance.exports, memory.buffer)
+         });
+   </script>
+
+
+   <!-- -----------Method 2  using js helper---------- -->
+   <script>
+      // ----------after loading test.js ----------------
+      var Module = {
+         instantiateWasm: (info, receiveInstance) => {
+            asmLibraryArg["jsPrintString"] = handlePrintString
+            removeRunDependency('wasm-instantiate');
+            delete Module["instantiateWasm"]
+            return createWasm()
+         },
+         onRuntimeInitialized: function () {
+            try {
+               console.log("-----method 2-------------")
+               process_func(Module.asm, Module.HEAP8)
+
+            } catch (error) {
+               console.error(error)
+            }
+         }
+      };
+   </script>
+
+   <!-- use generated js -->
+   <script src="test.js"></script>
+
+
+</body>
+
+</html>
