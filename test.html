@@ -16,7 +16,7 @@
          for (let i = 0; i < len; i++) {
             string += String.fromCharCode(view[i]);
          }
-         console.log(string);
+         console.log("From cpp callback func:",string);
       }
 
       //-----calling function defined in cpp
@@ -24,13 +24,13 @@
          // console.log(exports);
          let buffer = new Uint8Array(buf);
          let buf_pos = exports.c_hello()
-         // console.log("mannual", buf_pos,buffer[buf_pos])
+         console.log("pos & value", buf_pos,buffer[buf_pos])
          exports.print()
          let mytext = ""
          for (let i = buf_pos; buffer[i]; i++) {
             mytext += String.fromCharCode(buffer[i]);
          }
-         console.log("mannual", mytext);
+         console.log("From cpp pointer to buffer:", mytext);
       }
    </script>
 
