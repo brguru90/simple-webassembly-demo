@@ -7,7 +7,7 @@
 
 using namespace std;
 
-#define NUM_THREAD 5
+#define NUM_THREAD 50
 
 struct  thread_data_struct{
     int thread_id;
@@ -28,7 +28,7 @@ void *myThread(void *threaddata){
 }
 
 
-int main(){
+extern "C" int test(){
     pthread_t threads[NUM_THREAD];
     pthread_attr_t attr;
     void *status;
@@ -68,5 +68,8 @@ int main(){
 
 
     printf("Main thread exiting...\n");
-    pthread_exit(NULL);
+    // pthread_exit(NULL);
+    // printf("hiiiiiiiii\n");
+
+    return 210;
 }

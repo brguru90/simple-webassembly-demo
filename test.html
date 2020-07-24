@@ -23,7 +23,7 @@
 
       //-----calling function defined in cpp
       process_func = (exports, buf) => {
-         // console.log(exports);
+         console.log(exports);
          let buffer = new Uint8Array(buf);
          let buf_pos = exports.c_hello()
          // console.log("buffer: pos & value", buf_pos,buffer[buf_pos],String.fromCharCode(buffer[buf_pos]))

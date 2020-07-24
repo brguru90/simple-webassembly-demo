@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <script type="text/javascript">
+        var memory = null
+
+        afterThreadFinish = (sum) => {
+            alert(sum);
+            console.log(sum)
+        }
+
+        process_func = (exports, buf) => {
+            console.log(exports);
+            console.log("before call")
+            //  (async()=>exports.test())()
+            exports.test()
+            console.log("After call")
+            //  console.log("From c:")        
+        }
+    </script>
+
+    <!-- -----------Method 1---------- -->
+    <script>
+        //----------manual configuration including callback,buffer size etc
+        memory = new WebAssembly.Memory({
+            initial: 256,
+            maximum: 25600,
+        });
+
+        // const config = {
+        //     env: {
+        //         abortStackOverflow: () => {
+        //             throw new Error('overflow');
+        //         },
+        //         table: new WebAssembly.Table({
+        //             initial: 0,
+        //             maximum: 0,
+        //             element: 'anyfunc'
+        //         }),
+        //         tableBase: 0,
+        //         memory: memory,
+        //         __memory_base: 1024,
+        //         STACKTOP: 0,
+        //         STACK_MAX: memory.buffer.byteLength,
+        //     }
+        // }
+
+
+        // ------------manually executing wasm-----------------
+
+        //   fetch("thread2.wasm", { mode: "no-cors" })
+        //      .then(bytes => bytes.arrayBuffer())
+        //      .then(mod => WebAssembly.compile(mod)).then(async module => {
+        //         return WebAssembly.instantiate(module, config)
+        //      })
+        //      .then(instance => {
+        //         console.log("-----method 1-------------")
+        //         process_func(instance.exports, memory.buffer)
+        //      });
+    </script>
+
+
+    <!-- -----------Method 2  using js helper---------- -->
+    <script>
+        // ----------after loading test.js ----------------
+
+        // let callbackFix=(info, receiveInstance) => {
+        //         console.log("...........instantiateWasm.............")
+        //         console.log(asmLibraryArg["threadCompleteCallback"] != afterThreadFinish)
+        //         if (asmLibraryArg["threadCompleteCallback"] != afterThreadFinish) {
+        //             asmLibraryArg["threadCompleteCallback"] = afterThreadFinish
+        //             Module['wasmMemory'] = asmLibraryArg.memory
+        //             removeRunDependency('wasm-instantiate');
+        //             console.log("testing...", Module["_threadCompleteCallback"])
+        //             return createWasm()
+        //         }
+
+        //         // asmLibraryArg["threadCompleteCallback"] = afterThreadFinish
+        //         // Module['wasmMemory'] = asmLibraryArg.memory
+        //         // delete  asmLibraryArg["threadCompleteCallback"]
+        //         // Object.defineProperty(asmLibraryArg, 'threadCompleteCallback', {
+        //         //     value: afterThreadFinish,
+        //         //     writable: false
+        //         // });
+        //         // removeRunDependency('wasm-instantiate');
+        //         // delete Module["instantiateWasm"]
+        //         // return createWasm()
+        //     }
+
+
+        //     var Module = {
+        //     preInit: () => {
+        //         console.log("preInit")
+        //     },
+        //     preRun: () => {
+        //         console.log("preRun")
+        //     },
+        //     onRuntimeInitialized: () => {
+        //         console.log("onRuntimeInitialized")
+        //     },
+        //     instantiateWasm: (info, receiveInstance) => {
+        //         // console.log("...........instantiateWasm.............")
+        //         // console.log(asmLibraryArg["threadCompleteCallback"] != afterThreadFinish)
+        //         // if (asmLibraryArg["threadCompleteCallback"] != afterThreadFinish) {
+        //         //     asmLibraryArg["threadCompleteCallback"] = afterThreadFinish
+        //         //     Module['wasmMemory'] = asmLibraryArg.memory
+        //         //     removeRunDependency('wasm-instantiate');
+        //         //     console.log("testing...", Module["_threadCompleteCallback"])
+        //         //     delete Module["instantiateWasm"]
+        //         //     return createWasm()
+        //         // }
+
+        //         let custom_func = createWasm.toString()
+        //         custom_code = `\n
+        //         asmLibraryArg["threadCompleteCallback"] = afterThreadFinish;
+        //         `
+        //         custom_code_position = custom_func.indexOf("{") + 1
+        //         custom_func = custom_func.substr(0, custom_code_position) + custom_code + custom_func.substr(
+        //             custom_code_position);
+
+        //         // console.log(custom_func)
+        //         eval(custom_func)
+        //         // console.log("*****", createWasm)
+
+        //         // asmLibraryArg["threadCompleteCallback"] = afterThreadFinish
+        //         // Module['wasmMemory'] = asmLibraryArg.memory
+        //         // delete  asmLibraryArg["threadCompleteCallback"]
+        //         // Object.defineProperty(asmLibraryArg, 'threadCompleteCallback', {
+        //         //     value: afterThreadFinish,
+        //         //     writable: false
+        //         // });
+        //         removeRunDependency('wasm-instantiate');
+        //         delete Module["instantiateWasm"]
+        //         createWasm()
+        //         return
+        //     },
+        //     onRuntimeInitialized: function () {
+        //         try {
+        //             memory = Module['wasmMemory']
+        //             console.log("asmLibraryArg", asmLibraryArg)
+        //             process_func(Module.asm, Module.HEAP8)
+
+        //         } catch (error) {
+        //             console.error(error)
+        //         }
+        //     }
+        // };
+
+
+
+
+
+
+
+
+        // // fetch("thread.js")
+        // //     .then(response => response.text())
+        // //     .then(result => {
+        //         var script = document.createElement('script');
+
+        //         script.onload = function () {
+        //            alert("hi")
+        //         // script.append("alert('hi');")
+        //         };
+        //         script.src ="thread.js";
+        //         // script.innerHTML=`
+        //         // console.log("hi");
+        //         // `+result
+        //         document.body.appendChild(script);
+
+        //     // })
+    </script>
+
+    <!-- use generated js -->
+    <script id="api" src="thread.js"> </script>
+
+    <script>
+        function onInstantiateWasm(importObject, successCallback) {
+            importObject.env.threadCompleteCallback=afterThreadFinish
+            importObject.wasi_snapshot_preview1.threadCompleteCallback=afterThreadFinish
+            console.log(importObject)
+
+            WebAssembly.instantiateStreaming(fetch('thread.wasm'), importObject)
+                .then(obj => successCallback(obj.instance,obj.module));
+
+
+            // fetch("thread.wasm", {
+            //         mode: "no-cors"
+            //     })
+            //     .then(bytes => bytes.arrayBuffer())
+            //     .then(mod => WebAssembly.compile(mod)).then(async module => {
+            //         console.log(importObject)
+            //         return WebAssembly.instantiate(module, importObject)
+            //     })
+            //     .then(instance => {
+            //         console.log("instance", instance)
+            //         successCallback(instance)
+            //         // process_func(instance.exports, memory.buffer)
+            //     });
+
+            return {};
+        }
+
+
+
+
+        let emscriptenModule = new Module({
+            instantiateWasm: onInstantiateWasm,
+            onRuntimeInitialized: function (e) {
+                emscriptenModule.then(module => {
+                    console.log("onRuntimeInitialized", module)
+                    try {
+                        memory = module['wasmMemory']
+                        // console.log("asmLibraryArg", asmLibraryArg)
+                        console.log(module)
+                        process_func(module.asm, module.HEAP8)
+
+                    } catch (error) {
+                        console.error(error)
+                    }
+                })
+
+                // try {
+                //     memory = Module['wasmMemory']
+                //     // console.log("asmLibraryArg", asmLibraryArg)
+                //     console.log(Module)
+                //     process_func(Module.asm, Module.HEAP8)
+
+                // } catch (error) {
+                //     console.error(error)
+                // }
+            }
+        })
+        // emscriptenModule.then((module) => {
+        //     console.log(module)
+        //     // try {
+        //     //     memory = module['wasmMemory']
+        //     //     // console.log("asmLibraryArg", asmLibraryArg)
+        //     //     console.log(module)
+        //     //     process_func(module.asm, module.HEAP8)
+
+        //     // } catch (error) {
+        //     //     console.error(error)
+        //     // }
+        // })
+    </script>
+
+
+</body>
+
+</html>
