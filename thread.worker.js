@@ -74,11 +74,11 @@ this.onmessage = function(e) {
         importScripts(objectUrl);
         URL.revokeObjectURL(objectUrl);
       }
-      Module(Module).then(function (instance) {
-        Module = instance;
-        postMessage({ 'cmd': 'loaded' });
-      });
 
+      // MINIMAL_RUNTIME always compiled Wasm (&Wasm2JS) asynchronously, even in pthreads. But
+      // regular runtime and asm.js are loaded synchronously, so in those cases
+      // we are now loaded, and can post back to main thread.
+      postMessage({ 'cmd': 'loaded' });
 
     } else if (e.data.cmd === 'objectTransfer') {
       Module['PThread'].receiveObjectTransfer(e.data);

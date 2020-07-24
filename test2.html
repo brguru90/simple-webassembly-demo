@@ -66,8 +66,38 @@
         //      });
     </script>
 
-
     <!-- -----------Method 2  using js helper---------- -->
+
+    <script>
+        var Module = {
+
+            instantiateWasm: (importObject, receiveInstance) => {
+                Module['wasmMemory'] = asmLibraryArg.memory
+                importObject.env.threadCompleteCallback = afterThreadFinish
+                importObject.wasi_snapshot_preview1.threadCompleteCallback = afterThreadFinish
+                console.log(importObject)
+
+                WebAssembly.instantiateStreaming(fetch('thread.wasm'), importObject)
+                    .then(obj => receiveInstance(obj.instance, obj.module));
+
+
+         
+            },
+            onRuntimeInitialized: function () {
+                try {
+                    memory = Module['wasmMemory']
+                    console.log("asmLibraryArg", asmLibraryArg)
+                    process_func(Module.asm, Module.HEAP8)
+
+                } catch (error) {
+                    console.error(error)
+                }
+            }
+        };
+    </script>
+
+
+
     <script>
         // ----------after loading test.js ----------------
 
@@ -181,7 +211,7 @@
     <!-- use generated js -->
     <script id="api" src="thread.js"> </script>
 
-    <script>
+    <!-- <script>
         function onInstantiateWasm(importObject, successCallback) {
             importObject.env.threadCompleteCallback=afterThreadFinish
             importObject.wasi_snapshot_preview1.threadCompleteCallback=afterThreadFinish
@@ -250,7 +280,7 @@
         //     //     console.error(error)
         //     // }
         // })
-    </script>
+    </script> -->
 
 
 </body>
