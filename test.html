@@ -12,7 +12,9 @@
     var memory =null
       //----callback from cpp
       function handlePrintString(ptr, len) {
-         console.log(ptr)
+         
+         console.log("ptr",ptr)
+         console.log("memory",memory)
          const view = new Uint8Array(memory.buffer, ptr, len);
          let string = '';
          for (let i = 0; i < len; i++) {
@@ -80,12 +82,18 @@
 
    <!-- -----------Method 2  using js helper---------- -->
    <script>
+      let memory2 = new WebAssembly.Memory({
+         initial: 256,
+         maximum: 25600,
+      });
       // ----------after loading test.js ----------------
          var Module = {
          // wasmMemory:memory,
          instantiateWasm: (info, receiveInstance) => {
             asmLibraryArg["jsPrintString"] = handlePrintString
-            Module['wasmMemory']=asmLibraryArg.memory
+            // Module['wasmMemory']=asmLibraryArg.memory
+            Module['wasmMemory']=memory2
+            console.log("wasmMemory",Module)
             removeRunDependency('wasm-instantiate');
             delete Module["instantiateWasm"]
             return createWasm()
@@ -95,6 +103,7 @@
                console.log("-----method 2-------------")
                //getting buffer reference back to current program
                memory=Module['wasmMemory']
+               console.log("method2",memory,Module)
                process_func(Module.asm, Module.HEAP8)
 
             } catch (error) {
